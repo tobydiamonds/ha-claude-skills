@@ -74,7 +74,7 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   fs.writeFileSync(path.join(runDir, 'meta.json'), JSON.stringify(meta, null, 2));
 
   // Build claude command — use -p (print mode) with the prompt as positional arg
-  const args = ['-p', '--dangerously-skip-permissions'];
+  const args = ['-p'];
 
   // If there's a skill file, prepend its content as context in the prompt
   const skillFile = path.join(SKILLS_DIR, `${skillName}.md`);
@@ -96,6 +96,7 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
       ANTHROPIC_API_KEY: getApiKey(),
     },
     cwd: runDir,
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
 
   let output = '';
