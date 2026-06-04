@@ -1,24 +1,13 @@
 ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
-# Install Node.js, Chromium for PDF generation
+# Install Node.js
 RUN apk add --no-cache \
     nodejs \
     npm \
     bash \
     curl \
-    git \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    font-noto
-
-# Puppeteer config for Alpine
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    git
 
 # Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code

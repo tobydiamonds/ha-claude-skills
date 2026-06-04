@@ -6,7 +6,6 @@ const http = require('http');
 const { WebSocketServer } = require('ws');
 const cron = require('node-cron');
 const markdownIt = require('markdown-it');
-const puppeteer = require('puppeteer-core');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,7 +20,6 @@ const OPTIONS_PATH = '/data/options.json';
 const SUPERVISOR_TOKEN = process.env.SUPERVISOR_TOKEN;
 
 app.use(express.json());
-app.use('/pdf', express.static(SHARE_DIR));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const scheduledJobs = new Map();
@@ -45,7 +43,6 @@ function listMadplaner() {
     .map(f => {
       const name = f.replace('.md', '');
       const mdPath = path.join(SHARE_DIR, f);
-      const pdfPath = path.join(SHARE_DIR, name + '.pdf');
       const stat = fs.statSync(mdPath);
       const match = name.match(/uge-(\d+)-(\d+)/);
       return {
@@ -53,7 +50,6 @@ function listMadplaner() {
         file: f,
         week: match ? parseInt(match[1]) : null,
         year: match ? parseInt(match[2]) : null,
-        hasPdf: fs.existsSync(pdfPath),
         createdAt: stat.mtime.toISOString(),
       };
     })
@@ -67,52 +63,20 @@ function getMadplanHtml(id) {
   return md.render(content);
 }
 
-// --- PDF Generation ---
+// --- Checked items persistence ---
 
-async function generatePdf(mdFilePath) {
-  const content = fs.readFileSync(mdFilePath, 'utf8');
-  const html = renderFullHtml(md.render(content));
-  const pdfPath = mdFilePath.replace('.md', '.pdf');
-
-  const browser = await puppeteer.launch({
-    executablePath: '/usr/bin/chromium-browser',
-    args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
-  });
-
-  const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle0' });
-  await page.pdf({
-    path: pdfPath,
-    format: 'A4',
-    margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' },
-    printBackground: true,
-  });
-
-  await browser.close();
-  return pdfPath;
+function getCheckedPath(planId) {
+  return path.join(SHARE_DIR, planId + '.checked.json');
 }
 
-function renderFullHtml(bodyHtml) {
-  return `<!DOCTYPE html>
-<html lang="da">
-<head>
-<meta charset="UTF-8">
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #222; max-width: 800px; margin: 0 auto; padding: 20px; }
-  h1 { color: #e94560; border-bottom: 2px solid #e94560; padding-bottom: 0.3em; }
-  h2 { color: #16213e; margin-top: 2em; page-break-before: always; }
-  h2:first-of-type { page-break-before: avoid; }
-  h3 { color: #0f3460; }
-  ul, ol { padding-left: 1.5em; }
-  li { margin: 0.3em 0; }
-  strong { color: #e94560; }
-  hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
-  img { max-width: 100%; border-radius: 8px; margin: 1em 0; }
-  @media print { h2 { page-break-before: always; } }
-</style>
-</head>
-<body>${bodyHtml}</body>
-</html>`;
+function getCheckedItems(planId) {
+  const p = getCheckedPath(planId);
+  if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
+  return [];
+}
+
+function saveCheckedItems(planId, items) {
+  fs.writeFileSync(getCheckedPath(planId), JSON.stringify(items));
 }
 
 // --- Run a skill ---
@@ -178,7 +142,6 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
     meta.exitCode = code;
 
     if (code === 0 && skillName === 'madplan') {
-      // Save markdown to shared folder
       const now = new Date();
       const weekNum = getWeekNumber(now);
       const filename = `madplan-uge-${weekNum}-${now.getFullYear()}`;
@@ -188,17 +151,6 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
       fs.writeFileSync(mdPath, output);
       meta.outputFile = filename;
 
-      // Generate PDF
-      try {
-        await generatePdf(mdPath);
-        meta.hasPdf = true;
-        console.log(`PDF generated: ${filename}.pdf`);
-      } catch (err) {
-        console.error('PDF generation failed:', err.message);
-        meta.hasPdf = false;
-      }
-
-      // Update HA sensor
       updateHASensor(skillName, meta, output);
     }
 
@@ -263,13 +215,15 @@ app.get('/api/madplaner', (req, res) => {
 app.get('/api/madplaner/:id', (req, res) => {
   const html = getMadplanHtml(req.params.id);
   if (!html) return res.status(404).json({ error: 'not found' });
-  res.json({ id: req.params.id, html });
+  const checked = getCheckedItems(req.params.id);
+  res.json({ id: req.params.id, html, checked });
 });
 
-app.get('/api/madplaner/:id/raw', (req, res) => {
-  const mdPath = path.join(SHARE_DIR, req.params.id + '.md');
-  if (!fs.existsSync(mdPath)) return res.status(404).send('not found');
-  res.type('text/markdown').send(fs.readFileSync(mdPath, 'utf8'));
+app.post('/api/madplaner/:id/checked', (req, res) => {
+  const { checked } = req.body;
+  if (!Array.isArray(checked)) return res.status(400).json({ error: 'checked must be an array' });
+  saveCheckedItems(req.params.id, checked);
+  res.json({ ok: true });
 });
 
 app.post('/api/run', (req, res) => {
@@ -318,7 +272,7 @@ function loadSchedules() {
 
 const PORT = process.env.INGRESS_PORT || 8099;
 server.listen(PORT, () => {
-  console.log(`Claude Skills Runner v0.5.0 on port ${PORT}`);
+  console.log(`Claude Skills Runner v0.6.0 on port ${PORT}`);
   fs.mkdirSync(SHARE_DIR, { recursive: true });
   loadSchedules();
 });
