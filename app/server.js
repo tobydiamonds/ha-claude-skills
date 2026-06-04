@@ -85,7 +85,9 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   fs.writeFileSync(path.join(runDir, 'meta.json'), JSON.stringify(meta, null, 2));
 
   // Build claude command — use -p (print mode) with the prompt as positional arg
-  const args = ['-p'];
+  const options = getOptions();
+  const model = options.model || 'claude-sonnet-4-6';
+  const args = ['-p', '--model', model];
 
   // If there's a skill file, prepend its content as context in the prompt
   const skillFile = path.join(SKILLS_DIR, `${skillName}.md`);
