@@ -1,6 +1,6 @@
 name: "Claude Skills Runner"
 description: "Run Claude Code skills (madplan, etc.) on schedule or on-demand, with a web UI to view results"
-version: "0.6.0"
+version: "0.6.1"
 slug: "claude_skills_runner"
 url: "https://github.com/tobydiamonds/ha-claude-skills"
 arch:
@@ -11,8 +11,9 @@ startup: "application"
 boot: "auto"
 ingress: true
 ingress_port: 8099
-panel_icon: "mdi:robot"
-panel_title: "Claude Skills"
+panel_icon: "mdi:food"
+panel_title: "Madplaner"
+panel_admin: false
 map:
   - share:rw
   - addon_config:rw
