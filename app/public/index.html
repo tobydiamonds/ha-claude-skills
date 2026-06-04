@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Skills Runner</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --surface-2: #0f3460;
+      --accent: #e94560;
+      --text: #eee;
+      --text-dim: #999;
+      --success: #4ecdc4;
+      --warning: #f39c12;
+      --error: #e74c3c;
+      --border: #2a2a4a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .container { max-width: 1000px; margin: 0 auto; padding: 1.5rem; }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 1.4rem; font-weight: 600; }
+    .status-badge {
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-badge.running { background: var(--warning); color: #000; }
+    .status-badge.completed { background: var(--success); color: #000; }
+    .status-badge.failed { background: var(--error); color: #fff; }
+    .status-badge.idle { background: var(--border); color: var(--text-dim); }
+
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 6px;
+      background: var(--surface-2);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    button:hover { background: var(--accent); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.primary { background: var(--accent); }
+    button.primary:hover { background: #d63851; }
+
+    .run-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .run-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .run-card:hover { border-color: var(--accent); }
+    .run-card.active { border-color: var(--accent); border-width: 2px; }
+    .run-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.4rem;
+    }
+    .run-card-title { font-weight: 600; font-size: 0.95rem; }
+    .run-card-meta { font-size: 0.75rem; color: var(--text-dim); }
+
+    .output-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-top: 1.5rem;
+      overflow: hidden;
+    }
+    .output-panel-header {
+      padding: 0.8rem 1.2rem;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-content {
+      padding: 1.2rem;
+      max-height: 60vh;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+    .output-content.markdown {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 0.9rem;
+      white-space: normal;
+    }
+    .output-content.markdown h1 { font-size: 1.3rem; margin: 1rem 0 0.5rem; }
+    .output-content.markdown h2 { font-size: 1.1rem; margin: 0.8rem 0 0.4rem; }
+    .output-content.markdown h3 { font-size: 1rem; margin: 0.6rem 0 0.3rem; }
+    .output-content.markdown ul, .output-content.markdown ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+    .output-content.markdown li { margin: 0.25rem 0; }
+    .output-content.markdown p { margin: 0.5rem 0; }
+    .output-content.markdown strong { color: var(--accent); }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-dim);
+    }
+    .empty-state p { margin-top: 0.5rem; font-size: 0.9rem; }
+
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--text-dim);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 0.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .auth-warning {
+      background: var(--warning);
+      color: #000;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      font-size: 0.85rem;
+    }
+    .auth-warning a { color: #000; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Claude Skills Runner</h1>
+      <span class="status-badge idle" id="globalStatus">Idle</span>
+    </header>
+
+    <div id="authWarning" class="auth-warning" style="display:none">
+      API-nøgle mangler. Gå til add-on <strong>Configuration</strong> og indtast din Anthropic API key.
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="btnRunMadplan" onclick="triggerSkill('madplan')">
+        Kør Madplan
+      </button>
+      <button id="btnRunCustom" onclick="showCustomPrompt()">
+        Kør brugerdefineret prompt
+      </button>
+    </div>
+
+    <div class="run-list" id="runList"></div>
+
+    <div class="output-panel" id="outputPanel" style="display:none">
+      <div class="output-panel-header">
+        <span id="outputTitle">Output</span>
+        <span class="status-badge" id="outputStatus"></span>
+      </div>
+      <div class="output-content" id="outputContent"></div>
+    </div>
+  </div>
+
+  <script>
+    let ws;
+    let selectedRun = null;
+    let runs = [];
+    let liveOutput = {};
+
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${location.host}${location.pathname.replace(/\/$/, '')}/ws`);
+
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        handleWSMessage(msg);
+      };
+
+      ws.onclose = () => setTimeout(connectWS, 3000);
+    }
+
+    function handleWSMessage(msg) {
+      if (msg.type === 'started') {
+        updateGlobalStatus('running');
+        loadRuns();
+      } else if (msg.type === 'output') {
+        if (!liveOutput[msg.runId]) liveOutput[msg.runId] = '';
+        liveOutput[msg.runId] += msg.text;
+        if (selectedRun === msg.runId) {
+          document.getElementById('outputContent').textContent = liveOutput[msg.runId];
+          scrollOutput();
+        }
+      } else if (msg.type === 'completed') {
+        updateGlobalStatus('idle');
+        loadRuns();
+      }
+    }
+
+    function updateGlobalStatus(status) {
+      const el = document.getElementById('globalStatus');
+      el.className = `status-badge ${status}`;
+      el.textContent = status === 'running' ? 'Kører...' : 'Idle';
+    }
+
+    async function loadRuns() {
+      const res = await fetch(`${getBasePath()}/api/runs`);
+      runs = await res.json();
+      renderRuns();
+    }
+
+    function renderRuns() {
+      const list = document.getElementById('runList');
+      if (runs.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <h3>Ingen kørsler endnu</h3>
+            <p>Tryk "Kør Madplan" for at starte, eller vent på den planlagte kørsel.</p>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = runs.map(run => `
+        <div class="run-card ${selectedRun === run.id ? 'active' : ''}"
+             onclick="selectRun('${run.id}')">
+          <div class="run-card-header">
+            <span class="run-card-title">
+              ${run.status === 'running' ? '<span class="spinner"></span>' : ''}
+              ${run.skill}
+            </span>
+            <span class="status-badge ${run.status}">${run.status}</span>
+          </div>
+          <div class="run-card-meta">
+            ${formatDate(run.startedAt)} &middot; ${run.triggeredBy}
+            ${run.finishedAt ? ` &middot; ${formatDuration(run.startedAt, run.finishedAt)}` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function selectRun(runId) {
+      selectedRun = runId;
+      renderRuns();
+
+      const panel = document.getElementById('outputPanel');
+      panel.style.display = 'block';
+
+      const run = runs.find(r => r.id === runId);
+      document.getElementById('outputTitle').textContent = `${run.skill} — ${formatDate(run.startedAt)}`;
+
+      const statusEl = document.getElementById('outputStatus');
+      statusEl.className = `status-badge ${run.status}`;
+      statusEl.textContent = run.status;
+
+      const content = document.getElementById('outputContent');
+      if (run.status === 'running' && liveOutput[runId]) {
+        content.textContent = liveOutput[runId];
+      } else {
+        content.textContent = run.output || 'Ingen output endnu...';
+      }
+    }
+
+    async function triggerSkill(skill, prompt) {
+      const res = await fetch(`${getBasePath()}/api/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skill, prompt, triggeredBy: 'manual' }),
+      });
+      const meta = await res.json();
+      selectedRun = meta.id;
+      liveOutput[meta.id] = '';
+      loadRuns();
+
+      const panel = document.getElementById('outputPanel');
+      panel.style.display = 'block';
+      document.getElementById('outputTitle').textContent = `${skill} — kører...`;
+      document.getElementById('outputContent').textContent = '';
+      document.getElementById('outputStatus').className = 'status-badge running';
+      document.getElementById('outputStatus').textContent = 'running';
+    }
+
+    function showCustomPrompt() {
+      const prompt = window.prompt('Indtast prompt til Claude:');
+      if (prompt) triggerSkill('custom', prompt);
+    }
+
+    function scrollOutput() {
+      const el = document.getElementById('outputContent');
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function getBasePath() {
+      return location.pathname.replace(/\/$/, '');
+    }
+
+    function formatDate(iso) {
+      return new Date(iso).toLocaleString('da-DK', {
+        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function formatDuration(start, end) {
+      const ms = new Date(end) - new Date(start);
+      const sec = Math.floor(ms / 1000);
+      if (sec < 60) return `${sec}s`;
+      return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+    }
+
+    async function checkAuth() {
+      const res = await fetch(`${getBasePath()}/api/auth-status`);
+      const { authenticated } = await res.json();
+      document.getElementById('authWarning').style.display = authenticated ? 'none' : 'block';
+    }
+
+    // Init
+    connectWS();
+    loadRuns();
+    checkAuth();
+  </script>
+</body>
+</html>

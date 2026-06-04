@@ -1,0 +1,7 @@
+configuration:
+  skills:
+    name: Skills
+    description: Configure Claude skills and their schedules
+  log_level:
+    name: Log Level
+    description: Set the logging verbosity
