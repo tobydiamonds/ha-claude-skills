@@ -7,37 +7,22 @@ RUN apk add --no-cache \
     npm \
     bash \
     curl \
-    git \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont
+    git
 
 # Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code
 
-# Install md-to-pdf for madplan output
-RUN npm install -g md-to-pdf
-
-# Set up Puppeteer to use system Chromium
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-
 # Create working directories
-RUN mkdir -p /data/claude /data/runs /data/skills /app
+RUN mkdir -p /data/runs /data/skills /app
 
 # Copy application files
 COPY rootfs /
-COPY app /app
 
-WORKDIR /app
+# Copy app
+COPY app /app
 
 # Install app dependencies
 RUN cd /app && npm install
 
-# Ensure run script is executable
-RUN chmod a+x /run.sh
-
-CMD [ "/run.sh" ]
+# Make run script executable
+RUN chmod a+x /etc/s6-overlay/s6-rc.d/claude-skills/run
