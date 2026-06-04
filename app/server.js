@@ -16,12 +16,23 @@ const OPTIONS_PATH = '/data/options.json';
 const SUPERVISOR_TOKEN = process.env.SUPERVISOR_TOKEN;
 const INGRESS_PATH = process.env.INGRESS_PATH || '';
 
-function getApiKey() {
+function getOptions() {
   if (fs.existsSync(OPTIONS_PATH)) {
-    const options = JSON.parse(fs.readFileSync(OPTIONS_PATH, 'utf8'));
-    return options.api_key || '';
+    return JSON.parse(fs.readFileSync(OPTIONS_PATH, 'utf8'));
   }
-  return '';
+  return {};
+}
+
+function getApiKey() {
+  return getOptions().api_key || '';
+}
+
+function getAuthToken() {
+  return getOptions().auth_token || '';
+}
+
+function getBaseUrl() {
+  return getOptions().base_url || '';
 }
 
 app.use(express.json());
@@ -88,12 +99,20 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   }
   args.push(fullPrompt);
 
+  const authEnv = {};
+  const apiKey = getApiKey();
+  const authToken = getAuthToken();
+  const baseUrl = getBaseUrl();
+  if (apiKey) authEnv.ANTHROPIC_API_KEY = apiKey;
+  if (authToken) authEnv.ANTHROPIC_AUTH_TOKEN = authToken;
+  if (baseUrl) authEnv.ANTHROPIC_BASE_URL = baseUrl;
+
   const proc = spawn('claude', args, {
     env: {
       ...process.env,
       HOME: '/data',
       CLAUDE_CONFIG_DIR: '/data/claude',
-      ANTHROPIC_API_KEY: getApiKey(),
+      ...authEnv,
     },
     cwd: runDir,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -215,7 +234,7 @@ app.get('/api/skills', (req, res) => {
 });
 
 app.get('/api/auth-status', (req, res) => {
-  const hasAuth = !!getApiKey();
+  const hasAuth = !!(getApiKey() || getAuthToken());
   res.json({ authenticated: hasAuth });
 });
 
