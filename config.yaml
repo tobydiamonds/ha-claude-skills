@@ -6,6 +6,7 @@ url: "https://github.com/tobydiamonds/ha-claude-skills"
 arch:
   - amd64
   - aarch64
+init: false
 startup: "application"
 boot: "auto"
 ingress: true
