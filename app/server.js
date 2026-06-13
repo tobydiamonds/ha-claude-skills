@@ -300,6 +300,7 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
 
   proc.on('close', async (code) => {
     console.log(`[run] Process exited with code ${code}, stdout length: ${output.length}, stderr length: ${stderr.length}`);
+    if (code !== 0) console.error(`[run] FAILED OUTPUT: ${output.slice(0, 500)}`);
     if (stderr) console.error(`[run] STDERR: ${stderr.slice(0, 500)}`);
     meta.status = code === 0 ? 'completed' : 'failed';
     meta.finishedAt = new Date().toISOString();
