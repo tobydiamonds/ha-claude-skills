@@ -264,7 +264,8 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   }
   // Auth env
   const authEnv = {};
-  if (options.api_key) authEnv.ANTHROPIC_API_KEY = options.api_key;
+  if (options.auth_token) authEnv.ANTHROPIC_AUTH_TOKEN = options.auth_token;
+  if (options.base_url) authEnv.ANTHROPIC_BASE_URL = options.base_url;
 
   // Write prompt to file and pipe via shell to avoid argument escaping issues
   const promptFile = path.join(runDir, 'prompt.txt');
