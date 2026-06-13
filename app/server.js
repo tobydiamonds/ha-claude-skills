@@ -266,13 +266,13 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   const authEnv = {};
   if (options.api_key) authEnv.ANTHROPIC_API_KEY = options.api_key;
 
-  // Pipe prompt via stdin to avoid argument length limits
   const proc = spawn('claude', args, {
     env: { ...process.env, HOME: '/data', CLAUDE_CONFIG_DIR: '/data/claude', ...authEnv },
     cwd: runDir,
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
+  // Send prompt via stdin to avoid shell escaping issues
   proc.stdin.write(fullPrompt);
   proc.stdin.end();
 
