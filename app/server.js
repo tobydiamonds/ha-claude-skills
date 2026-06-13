@@ -488,6 +488,11 @@ app.get('/api/current-user', async (req, res) => {
   res.json({ name: '', id: '' });
 });
 
+app.get('/api/version', (req, res) => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+  res.json({ version: pkg.version });
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

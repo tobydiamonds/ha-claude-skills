@@ -294,7 +294,7 @@
   <!-- List View -->
   <div class="list-view" id="listView">
     <div class="header">
-      <h1>Madplaner</h1>
+      <h1>Madplaner <span class="user-label" id="versionLabel"></span></h1>
       <div class="header-right">
         <span class="user-label" id="userLabel"></span>
         <button class="btn" id="btnGenerate" onclick="generate()">+ Ny</button>
@@ -329,9 +329,18 @@
 
     async function init() {
       await detectCurrentUser();
+      loadVersion();
       connectWS();
       loadPlans();
       checkStatus();
+    }
+
+    async function loadVersion() {
+      try {
+        const res = await fetch(`${BASE()}/api/version`);
+        const data = await res.json();
+        document.getElementById('versionLabel').textContent = `v${data.version}`;
+      } catch (e) {}
     }
 
     async function detectCurrentUser() {
