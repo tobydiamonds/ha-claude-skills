@@ -17,6 +17,9 @@ const RUNS_DIR = '/data/runs';
 const SKILLS_DIR = '/data/skills';
 const SHARE_DIR = '/share/madplaner';
 const OPTIONS_PATH = '/data/options.json';
+const RATINGS_PATH = '/data/ratings.json';
+const FEEDBACK_PATH = '/data/feedback.json';
+const IMAGE_CACHE_PATH = '/data/image-cache.json';
 const SUPERVISOR_TOKEN = process.env.SUPERVISOR_TOKEN;
 
 app.use(express.json());
@@ -79,6 +82,151 @@ function saveCheckedItems(planId, items) {
   fs.writeFileSync(getCheckedPath(planId), JSON.stringify(items));
 }
 
+// --- Ratings ---
+
+function getRatings() {
+  if (fs.existsSync(RATINGS_PATH)) return JSON.parse(fs.readFileSync(RATINGS_PATH, 'utf8'));
+  return {};
+}
+
+function saveRatings(data) {
+  fs.writeFileSync(RATINGS_PATH, JSON.stringify(data, null, 2));
+}
+
+// --- Feedback ---
+
+function getFeedback() {
+  if (fs.existsSync(FEEDBACK_PATH)) return JSON.parse(fs.readFileSync(FEEDBACK_PATH, 'utf8'));
+  return {};
+}
+
+function saveFeedback(data) {
+  fs.writeFileSync(FEEDBACK_PATH, JSON.stringify(data, null, 2));
+}
+
+// --- Image resolution ---
+
+function getImageCache() {
+  if (fs.existsSync(IMAGE_CACHE_PATH)) return JSON.parse(fs.readFileSync(IMAGE_CACHE_PATH, 'utf8'));
+  return {};
+}
+
+function saveImageCache(data) {
+  fs.writeFileSync(IMAGE_CACHE_PATH, JSON.stringify(data, null, 2));
+}
+
+async function resolveImages(markdownContent) {
+  const options = getOptions();
+  const apiKey = options.pexels_api_key;
+  if (!apiKey) return markdownContent;
+
+  const cache = getImageCache();
+  const pattern = /!\[([^\]]*)\]\(image-search:([^)]+)\)/g;
+  let result = markdownContent;
+  const matches = [...markdownContent.matchAll(pattern)];
+
+  for (const match of matches) {
+    const [fullMatch, alt, query] = match;
+    const trimmedQuery = query.trim();
+
+    let imageUrl = cache[trimmedQuery];
+    if (!imageUrl) {
+      try {
+        const res = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(trimmedQuery)}&per_page=1&orientation=landscape`, {
+          headers: { Authorization: apiKey },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.photos && data.photos.length > 0) {
+            imageUrl = data.photos[0].src.medium;
+            cache[trimmedQuery] = imageUrl;
+          }
+        }
+      } catch (err) {
+        console.error(`Image fetch failed for "${trimmedQuery}":`, err.message);
+      }
+    }
+
+    if (imageUrl) {
+      result = result.replace(fullMatch, `![${alt}](${imageUrl})`);
+    } else {
+      result = result.replace(fullMatch, '');
+    }
+  }
+
+  saveImageCache(cache);
+  return result;
+}
+
+// --- Shopping list extraction ---
+
+function extractShoppingList(markdownContent, checkedItems) {
+  const lines = markdownContent.split('\n');
+  let inShoppingSection = false;
+  let output = '';
+  let itemIndex = 0;
+  let currentCategory = '';
+
+  for (const line of lines) {
+    if (/^#\s*Indkøbsliste/i.test(line)) {
+      inShoppingSection = true;
+      output += line.replace(/^#+\s*/, '').trim() + '\n';
+      output += '='.repeat(30) + '\n\n';
+      continue;
+    }
+
+    if (inShoppingSection) {
+      if (/^#(?!#)/.test(line) && !/indkøb/i.test(line)) break;
+
+      if (/^###\s*/.test(line)) {
+        currentCategory = line.replace(/^###\s*/, '').trim();
+        output += currentCategory + '\n';
+        output += '-'.repeat(currentCategory.length) + '\n';
+      } else if (/^\s*[-*]\s+/.test(line)) {
+        const itemText = line.replace(/^\s*[-*]\s+/, '').trim();
+        const isChecked = checkedItems.includes(itemIndex);
+        output += `${isChecked ? '[x]' : '[ ]'} ${itemText}\n`;
+        itemIndex++;
+      } else if (line.trim() === '') {
+        output += '\n';
+      }
+    }
+  }
+
+  return output.trim() + '\n';
+}
+
+// --- Recent context for feedback loop ---
+
+function getRecentContext() {
+  const feedback = getFeedback();
+  const ratings = getRatings();
+  const plans = listMadplaner().slice(0, 3);
+
+  let context = '';
+  for (const plan of plans) {
+    const planFeedback = feedback[plan.id];
+    const planRatings = ratings[plan.id];
+    if (!planFeedback && !planRatings) continue;
+
+    context += `\n### ${plan.id}:\n`;
+    if (planRatings) {
+      for (const [recipe, users] of Object.entries(planRatings)) {
+        const vals = Object.values(users);
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        context += `- ${recipe}: ${avg.toFixed(1)}/5 stjerner\n`;
+      }
+    }
+    if (planFeedback) {
+      for (const [user, text] of Object.entries(planFeedback)) {
+        const truncated = text.length > 300 ? text.slice(0, 300) + '...' : text;
+        context += `- ${user}: "${truncated}"\n`;
+      }
+    }
+  }
+  return context;
+}
+
 // --- Run a skill ---
 
 function runSkill(skillName, prompt, triggeredBy = 'manual') {
@@ -105,8 +253,12 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   let fullPrompt;
   if (fs.existsSync(skillFile)) {
     const skillContent = fs.readFileSync(skillFile, 'utf8');
+    const recentContext = skillName === 'madplan' ? getRecentContext() : '';
+    const feedbackSection = recentContext
+      ? `\n\n<previous_feedback>\n${recentContext}\n</previous_feedback>\n\nTag hensyn til ovenstående feedback når du genererer den nye madplan. VIGTIGT: Feedback må IKKE overskride kostprincipperne (ingen fisk, laktosefri, bælgfrugter i mindst 3 retter, etc.). Brug feedback til at justere smagspræferencer, variationsønsker og portionsstørrelser. Retter med høj rating (4-5 stjerner) kan genbruges eller varieres. Retter med lav rating (1-2) bør undgås.`
+      : '';
     const userPrompt = prompt || `Kør ${skillName} skillen. Brug den aktuelle dato til at bestemme ugenummer og sæson.`;
-    fullPrompt = `<skill>\n${skillContent}\n</skill>\n\n${userPrompt}\n\nVIGTIGT: Output KUN madplanens markdown-indhold. Ingen forklaringer, ingen kodeblokke, ingen indledende tekst. Start direkte med "# Madplan uge..."`;
+    fullPrompt = `<skill>\n${skillContent}\n</skill>${feedbackSection}\n\n${userPrompt}\n\nVIGTIGT: Output KUN madplanens markdown-indhold. Ingen forklaringer, ingen kodeblokke, ingen indledende tekst. Start direkte med "# Madplan uge..."`;
   } else {
     fullPrompt = prompt || `Run the ${skillName} skill`;
   }
@@ -148,10 +300,18 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
       const mdPath = path.join(SHARE_DIR, filename + '.md');
 
       fs.mkdirSync(SHARE_DIR, { recursive: true });
-      fs.writeFileSync(mdPath, output);
+
+      let finalOutput = output;
+      try {
+        finalOutput = await resolveImages(output);
+      } catch (err) {
+        console.error('Image resolution failed, using raw output:', err.message);
+      }
+
+      fs.writeFileSync(mdPath, finalOutput);
       meta.outputFile = filename;
 
-      updateHASensor(skillName, meta, output);
+      updateHASensor(skillName, meta, finalOutput);
     }
 
     fs.writeFileSync(path.join(runDir, 'meta.json'), JSON.stringify(meta, null, 2));
@@ -245,6 +405,84 @@ app.get('/api/auth-status', (req, res) => {
   res.json({ authenticated: hasAuth });
 });
 
+// --- Shopping list download ---
+
+app.get('/api/madplaner/:id/shopping-list.txt', (req, res) => {
+  const mdPath = path.join(SHARE_DIR, req.params.id + '.md');
+  if (!fs.existsSync(mdPath)) return res.status(404).send('Not found');
+
+  const content = fs.readFileSync(mdPath, 'utf8');
+  const checked = getCheckedItems(req.params.id);
+  const shoppingText = extractShoppingList(content, checked);
+
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${req.params.id}-indkobsliste.txt"`);
+  res.send(shoppingText);
+});
+
+// --- Ratings ---
+
+app.get('/api/madplaner/:id/ratings', (req, res) => {
+  const ratings = getRatings();
+  res.json(ratings[req.params.id] || {});
+});
+
+app.post('/api/madplaner/:id/ratings', (req, res) => {
+  const { recipe, user, rating } = req.body;
+  if (!recipe || !user || !rating || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: 'Invalid rating data' });
+  }
+  const ratings = getRatings();
+  if (!ratings[req.params.id]) ratings[req.params.id] = {};
+  if (!ratings[req.params.id][recipe]) ratings[req.params.id][recipe] = {};
+  ratings[req.params.id][recipe][user] = rating;
+  saveRatings(ratings);
+  res.json({ ok: true });
+});
+
+// --- Feedback ---
+
+app.get('/api/madplaner/:id/feedback', (req, res) => {
+  const feedback = getFeedback();
+  res.json(feedback[req.params.id] || {});
+});
+
+app.post('/api/madplaner/:id/feedback', (req, res) => {
+  const { user, text } = req.body;
+  if (!user || typeof text !== 'string') {
+    return res.status(400).json({ error: 'Invalid feedback data' });
+  }
+  const feedback = getFeedback();
+  if (!feedback[req.params.id]) feedback[req.params.id] = {};
+  feedback[req.params.id][user] = text;
+  saveFeedback(feedback);
+  res.json({ ok: true });
+});
+
+// --- Household members (from HA persons) ---
+
+async function getHAPersons() {
+  if (!SUPERVISOR_TOKEN) return [];
+  try {
+    const res = await fetch('http://supervisor/core/api/states', {
+      headers: { 'Authorization': `Bearer ${SUPERVISOR_TOKEN}` },
+    });
+    if (!res.ok) return [];
+    const states = await res.json();
+    return states
+      .filter(s => s.entity_id.startsWith('person.'))
+      .map(s => s.attributes.friendly_name || s.entity_id.replace('person.', ''));
+  } catch (err) {
+    console.error('Failed to fetch HA persons:', err.message);
+    return [];
+  }
+}
+
+app.get('/api/household', async (req, res) => {
+  const members = await getHAPersons();
+  res.json({ members });
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -272,7 +510,7 @@ function loadSchedules() {
 
 const PORT = process.env.INGRESS_PORT || 8099;
 server.listen(PORT, () => {
-  console.log(`Claude Skills Runner v0.6.0 on port ${PORT}`);
+  console.log(`Claude Skills Runner v0.7.0 on port ${PORT}`);
   fs.mkdirSync(SHARE_DIR, { recursive: true });
   loadSchedules();
 });

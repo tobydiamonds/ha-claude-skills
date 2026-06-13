@@ -80,9 +80,10 @@ Generer madplanen i følgende markdown-format:
 ---
 
 ## Mandag: [Ret-navn]
+![Ret-navn](image-search:ENGLISH_DESCRIPTION_OF_FINISHED_DISH)
 **Tid:** X min | **Protein:** X | **Bælgfrugt:** X (hvis relevant)
 
-### Ingredienser (2 pers)
+### Ingredienser (3 pers)
 - ...
 
 ### Fremgangsmåde
@@ -116,6 +117,7 @@ Generer madplanen i følgende markdown-format:
 ```
 
 ## Vigtige noter
-- Portioner: 2 personer (medmindre andet angivet)
+- Portioner: 3 personer (medmindre andet angivet)
 - Indkøbslisten skal være samlet for hele ugen og sorteret efter supermarkedets afdelinger
 - Marker ingredienser der kan genbruges på tværs af ugens retter
+- **Billede pr. ret**: Inkluder ÉN linje `![Ret-navn](image-search:QUERY)` umiddelbart efter hver dags H2-overskrift. QUERY skal være på engelsk og beskrive den færdige ret visuelt (f.eks. "chicken tikka masala bowl with rice and naan bread"). Brug IKKE danske navne i søgeforespørgslen.

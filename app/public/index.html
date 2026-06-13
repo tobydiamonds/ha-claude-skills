@@ -15,6 +15,8 @@
       --border: #eee;
       --success: #4ecdc4;
       --shadow: 0 2px 8px rgba(0,0,0,0.08);
+      --star: #ffc107;
+      --star-empty: #ddd;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -38,6 +40,7 @@
       box-shadow: var(--shadow);
     }
     .header h1 { font-size: 1.2rem; font-weight: 700; }
+    .header-right { display: flex; align-items: center; gap: 0.6rem; }
     .btn {
       background: var(--accent);
       color: #fff;
@@ -47,6 +50,10 @@
       font-size: 0.85rem;
       font-weight: 600;
       cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
     }
     .btn:active { opacity: 0.7; }
     .btn:disabled { opacity: 0.4; }
@@ -56,6 +63,50 @@
       padding: 0.5rem 0;
       font-size: 1rem;
     }
+    .btn.secondary {
+      background: #16213e;
+    }
+    .btn.small {
+      padding: 0.35rem 0.7rem;
+      font-size: 0.8rem;
+      border-radius: 6px;
+    }
+
+    /* User selector */
+    .user-selector {
+      position: relative;
+    }
+    .user-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .user-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      margin-top: 0.3rem;
+      min-width: 120px;
+      z-index: 200;
+    }
+    .user-dropdown.open { display: block; }
+    .user-option {
+      padding: 0.5rem 0.8rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .user-option:hover { background: var(--bg); }
+    .user-option.active { color: var(--accent); font-weight: 600; }
 
     /* List */
     .list-view { padding: 0.5rem; }
@@ -118,8 +169,32 @@
     .plan-content li { margin: 0.25rem 0; }
     .plan-content p { margin: 0.4rem 0; }
     .plan-content strong { color: var(--accent); }
-    .plan-content img { max-width: 100%; border-radius: 8px; margin: 0.5rem 0; }
+    .plan-content img { max-width: 100%; border-radius: 12px; margin: 0.8rem 0; box-shadow: var(--shadow); }
     .plan-content hr { border: none; border-top: 1px solid var(--border); margin: 1.2rem 0; }
+
+    /* Star rating */
+    .rating-widget {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 1rem 0;
+      padding: 0.8rem;
+      background: var(--bg);
+      border-radius: 10px;
+    }
+    .rating-label { font-size: 0.8rem; color: var(--text-dim); margin-right: 0.3rem; }
+    .stars { display: flex; gap: 0.15rem; }
+    .star {
+      font-size: 1.6rem;
+      cursor: pointer;
+      color: var(--star-empty);
+      transition: color 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .star.filled { color: var(--star); }
+    .star:hover { color: var(--star); }
+    .rating-info { font-size: 0.75rem; color: var(--text-dim); margin-left: auto; }
 
     /* Shopping list checkboxes */
     .shopping-item {
@@ -153,7 +228,7 @@
       border-color: var(--success);
     }
     .shopping-item.checked .shopping-check::after {
-      content: '✓';
+      content: '\2713';
       color: #fff;
       font-weight: 700;
       font-size: 0.85rem;
@@ -184,6 +259,42 @@
       transition: width 0.3s;
     }
     .progress-text { font-size: 0.8rem; color: var(--text-dim); white-space: nowrap; }
+    .download-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 0.8rem;
+    }
+
+    /* Feedback */
+    .feedback-section { padding: 0.5rem 0; }
+    .feedback-entry {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 0.8rem 1rem;
+      margin-bottom: 0.8rem;
+    }
+    .feedback-author { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem; }
+    .feedback-text { font-size: 0.9rem; color: var(--text); line-height: 1.5; }
+    .feedback-form { margin-top: 1.5rem; }
+    .feedback-form textarea {
+      width: 100%;
+      min-height: 100px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.8rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      resize: vertical;
+      outline: none;
+    }
+    .feedback-form textarea:focus { border-color: var(--accent); }
+    .feedback-form .btn { margin-top: 0.6rem; }
+    .feedback-hint {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.4rem;
+      line-height: 1.4;
+    }
 
     /* Running */
     .running-banner {
@@ -210,7 +321,13 @@
   <div class="list-view" id="listView">
     <div class="header">
       <h1>Madplaner</h1>
-      <button class="btn" id="btnGenerate" onclick="generate()">+ Ny</button>
+      <div class="header-right">
+        <div class="user-selector">
+          <button class="user-btn" id="userBtn" onclick="toggleUserDropdown()">Bruger</button>
+          <div class="user-dropdown" id="userDropdown"></div>
+        </div>
+        <button class="btn" id="btnGenerate" onclick="generate()">+ Ny</button>
+      </div>
     </div>
     <div class="running-banner" id="runningBanner">
       <div class="spinner"></div>
@@ -222,8 +339,12 @@
   <!-- Detail View -->
   <div class="detail-view" id="detailView">
     <div class="header">
-      <button class="btn back" onclick="showList()">← Tilbage</button>
+      <button class="btn back" onclick="showList()">&larr; Tilbage</button>
       <span id="detailTitle" style="font-weight:600;font-size:0.9rem"></span>
+      <div class="user-selector">
+        <button class="user-btn" id="userBtnDetail" onclick="toggleUserDropdown()">Bruger</button>
+        <div class="user-dropdown" id="userDropdownDetail"></div>
+      </div>
     </div>
     <div class="tab-bar" id="tabBar"></div>
     <div class="plan-content" id="planContent"></div>
@@ -231,8 +352,64 @@
 
   <script>
     let ws, plans = [], currentPlanId = null, currentSections = [], checkedItems = [];
+    let currentRatings = {}, currentFeedback = {}, householdMembers = [];
+    let currentUser = localStorage.getItem('currentUser') || '';
 
     const BASE = () => location.pathname.replace(/\/$/, '');
+
+    // --- Init ---
+
+    async function init() {
+      await loadHousehold();
+      connectWS();
+      loadPlans();
+      checkStatus();
+    }
+
+    async function loadHousehold() {
+      try {
+        const res = await fetch(`${BASE()}/api/household`);
+        const data = await res.json();
+        householdMembers = data.members || [];
+        if (householdMembers.length && !currentUser) {
+          currentUser = householdMembers[0];
+          localStorage.setItem('currentUser', currentUser);
+        }
+        renderUserSelectors();
+      } catch (e) { /* ignore */ }
+    }
+
+    function renderUserSelectors() {
+      const label = currentUser || 'Bruger';
+      document.getElementById('userBtn').textContent = label;
+      document.getElementById('userBtnDetail').textContent = label;
+
+      const html = householdMembers.map(m =>
+        `<div class="user-option ${m === currentUser ? 'active' : ''}" onclick="selectUser('${m}')">${m}</div>`
+      ).join('');
+      document.getElementById('userDropdown').innerHTML = html;
+      document.getElementById('userDropdownDetail').innerHTML = html;
+    }
+
+    function toggleUserDropdown() {
+      document.querySelectorAll('.user-dropdown').forEach(d => d.classList.toggle('open'));
+    }
+
+    function selectUser(name) {
+      currentUser = name;
+      localStorage.setItem('currentUser', name);
+      renderUserSelectors();
+      document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('open'));
+      if (currentPlanId) refreshCurrentSection();
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.user-selector')) {
+        document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('open'));
+      }
+    });
+
+    // --- WebSocket ---
 
     function connectWS() {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -249,6 +426,8 @@
       document.getElementById('runningBanner').classList.toggle('active', on);
       document.getElementById('btnGenerate').disabled = on;
     }
+
+    // --- Plans ---
 
     async function loadPlans() {
       const res = await fetch(`${BASE()}/api/madplaner`);
@@ -268,14 +447,20 @@
             <div class="plan-card-title">Uge ${p.week || '?'}, ${p.year || ''}</div>
             <div class="plan-card-meta">${fmtDate(p.createdAt)}</div>
           </div>
-          <span class="plan-card-arrow">›</span>
+          <span class="plan-card-arrow">&rsaquo;</span>
         </div>`).join('');
     }
 
     async function showPlan(id) {
       currentPlanId = id;
-      const res = await fetch(`${BASE()}/api/madplaner/${id}`);
-      const data = await res.json();
+      const [planRes, ratingsRes, feedbackRes] = await Promise.all([
+        fetch(`${BASE()}/api/madplaner/${id}`),
+        fetch(`${BASE()}/api/madplaner/${id}/ratings`),
+        fetch(`${BASE()}/api/madplaner/${id}/feedback`),
+      ]);
+      const data = await planRes.json();
+      currentRatings = await ratingsRes.json();
+      currentFeedback = await feedbackRes.json();
       checkedItems = data.checked || [];
 
       document.getElementById('listView').classList.add('hidden');
@@ -293,19 +478,30 @@
 
     function parseSections(container) {
       const sections = [];
-      let current = { title: 'Overblik', content: '', isShoppingList: false };
+      let current = { title: 'Overblik', content: '', isShoppingList: false, isFeedback: false, recipeName: '' };
 
       for (const node of container.childNodes) {
         if (node.tagName === 'H2' || (node.tagName === 'H1' && sections.length > 0)) {
           if (current.content || current.title !== 'Overblik') sections.push(current);
           const title = node.textContent.trim();
-          current = { title, content: '', isShoppingList: title.toLowerCase().includes('indkøb') };
+          const isShop = title.toLowerCase().includes('indkøb');
+          const recipeName = extractRecipeName(title);
+          current = { title, content: '', isShoppingList: isShop, isFeedback: false, recipeName };
         } else {
           current.content += node.outerHTML || '';
         }
       }
       if (current.content || current.title !== 'Overblik') sections.push(current);
+
+      // Add feedback tab
+      sections.push({ title: 'Feedback', content: '', isShoppingList: false, isFeedback: true, recipeName: '' });
+
       return sections;
+    }
+
+    function extractRecipeName(title) {
+      const match = title.match(/^\w+dag:\s*(.+)$/i);
+      return match ? match[1].trim() : '';
     }
 
     function renderTabs() {
@@ -317,33 +513,85 @@
         else if (label.includes('Onsdag')) label = 'Ons';
         else if (label.includes('Torsdag')) label = 'Tor';
         else if (label.includes('Fredag')) label = 'Fre';
-        else if (label.toLowerCase().includes('indkøb')) label = '🛒 Indkøb';
+        else if (label.toLowerCase().includes('indkøb')) label = 'Indkøb';
+        else if (label === 'Feedback') label = 'Feedback';
         else if (label.length > 10) label = label.slice(0, 10) + '…';
         return `<span class="tab ${i === 0 ? 'active' : ''}" onclick="showSection(${i})">${label}</span>`;
       }).join('');
     }
 
+    let activeSection = 0;
+
     function showSection(idx) {
+      activeSection = idx;
       const section = currentSections[idx];
       const el = document.getElementById('planContent');
 
       document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
 
-      if (section.isShoppingList) {
+      if (section.isFeedback) {
+        el.innerHTML = renderFeedbackSection();
+      } else if (section.isShoppingList) {
         el.innerHTML = renderShoppingList(section);
         updateProgress();
       } else {
-        el.innerHTML = `<h2>${section.title}</h2>${section.content}`;
+        let html = `<h2>${section.title}</h2>${section.content}`;
+        if (section.recipeName) {
+          html += renderRatingWidget(section.recipeName);
+        }
+        el.innerHTML = html;
       }
       el.scrollTop = 0;
     }
 
+    function refreshCurrentSection() {
+      showSection(activeSection);
+    }
+
+    // --- Star Ratings ---
+
+    function renderRatingWidget(recipeName) {
+      const recipeRatings = currentRatings[recipeName] || {};
+      const myRating = recipeRatings[currentUser] || 0;
+      const allRatings = Object.values(recipeRatings);
+      const avg = allRatings.length ? (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1) : null;
+
+      let starsHtml = '';
+      for (let i = 1; i <= 5; i++) {
+        const filled = i <= myRating ? 'filled' : '';
+        starsHtml += `<span class="star ${filled}" onclick="rateRecipe('${escHtml(recipeName)}', ${i})">★</span>`;
+      }
+
+      const infoText = avg ? `${avg}/5 (${allRatings.length} vurd.)` : 'Ingen vurderinger endnu';
+
+      return `
+        <div class="rating-widget">
+          <span class="rating-label">Din vurdering:</span>
+          <div class="stars">${starsHtml}</div>
+          <span class="rating-info">${infoText}</span>
+        </div>`;
+    }
+
+    async function rateRecipe(recipeName, rating) {
+      if (!currentUser) { alert('Vælg en bruger først'); return; }
+      await fetch(`${BASE()}/api/madplaner/${currentPlanId}/ratings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipe: recipeName, user: currentUser, rating }),
+      });
+      if (!currentRatings[recipeName]) currentRatings[recipeName] = {};
+      currentRatings[recipeName][currentUser] = rating;
+      refreshCurrentSection();
+    }
+
+    // --- Shopping List ---
+
     function renderShoppingList(section) {
-      // Parse the HTML content into categories and items
       const tmp = document.createElement('div');
       tmp.innerHTML = section.content;
 
-      let html = '<div class="shopping-progress"><div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div><span class="progress-text" id="progressText">0/0</span></div>';
+      let html = `<div class="download-row"><a href="${BASE()}/api/madplaner/${currentPlanId}/shopping-list.txt" class="btn small secondary" download>Download liste</a></div>`;
+      html += '<div class="shopping-progress"><div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div><span class="progress-text" id="progressText">0/0</span></div>';
 
       let itemIndex = 0;
       for (const node of tmp.childNodes) {
@@ -395,6 +643,50 @@
       });
     }
 
+    // --- Feedback ---
+
+    function renderFeedbackSection() {
+      let html = '<div class="feedback-section">';
+      html += '<h2>Feedback til denne madplan</h2>';
+      html += '<p style="font-size:0.85rem;color:var(--text-dim);margin:0.5rem 0 1rem">Skriv hvad der fungerede godt og hvad der kan forbedres. Feedback bruges til at tilpasse fremtidige madplaner.</p>';
+
+      // Show existing feedback from all users
+      const entries = Object.entries(currentFeedback);
+      if (entries.length) {
+        for (const [user, text] of entries) {
+          html += `<div class="feedback-entry">
+            <div class="feedback-author">${escHtml(user)}</div>
+            <div class="feedback-text">${escHtml(text)}</div>
+          </div>`;
+        }
+      }
+
+      // Form for current user
+      const myFeedback = currentFeedback[currentUser] || '';
+      html += `<div class="feedback-form">
+        <strong style="font-size:0.85rem">${currentUser ? escHtml(currentUser) + 's feedback:' : 'Din feedback:'}</strong>
+        <textarea id="feedbackText" placeholder="F.eks.: Tirsdagens ret var for krydret. Mere pasta-lignende retter. Bønneburgeren var fantastisk!">${escHtml(myFeedback)}</textarea>
+        <button class="btn small" onclick="saveFeedback()">Gem feedback</button>
+        <p class="feedback-hint">Feedback tages til indtægt inden for de eksisterende kostregler (ingen fisk, laktosefri, etc.)</p>
+      </div>`;
+      html += '</div>';
+      return html;
+    }
+
+    async function saveFeedback() {
+      if (!currentUser) { alert('Vælg en bruger først'); return; }
+      const text = document.getElementById('feedbackText').value.trim();
+      await fetch(`${BASE()}/api/madplaner/${currentPlanId}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: currentUser, text }),
+      });
+      currentFeedback[currentUser] = text;
+      refreshCurrentSection();
+    }
+
+    // --- Navigation ---
+
     function showList() {
       document.getElementById('listView').classList.remove('hidden');
       document.getElementById('detailView').classList.remove('active');
@@ -409,8 +701,16 @@
       });
     }
 
+    // --- Helpers ---
+
     function fmtDate(iso) {
       return new Date(iso).toLocaleDateString('da-DK', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function escHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
     }
 
     async function checkStatus() {
@@ -419,9 +719,7 @@
       showRunning(running);
     }
 
-    connectWS();
-    loadPlans();
-    checkStatus();
+    init();
   </script>
 </body>
 </html>

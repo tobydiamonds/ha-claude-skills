@@ -5,3 +5,6 @@ configuration:
   log_level:
     name: Log Level
     description: Set the logging verbosity
+  pexels_api_key:
+    name: Pexels API Key
+    description: Free API key from pexels.com for recipe images (optional, get one at pexels.com/api)
