@@ -245,7 +245,7 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   fs.writeFileSync(path.join(runDir, 'meta.json'), JSON.stringify(meta, null, 2));
 
   const options = getOptions();
-  const model = options.model || 'claude-sonnet-4-6';
+  const model = options.model || 'sonnet';
   const args = ['-p', '--model', model];
 
   // Build the prompt
