@@ -505,68 +505,6 @@ app.get('/api/version', (req, res) => {
   res.json({ version: pkg.version });
 });
 
-// --- Claude CLI Login ---
-
-app.post('/api/claude-login', (req, res) => {
-  const options = getOptions();
-  const authEnv = {};
-  if (options.api_key) authEnv.ANTHROPIC_API_KEY = options.api_key;
-
-  const loginProc = spawn('claude', ['login'], {
-    env: { ...process.env, HOME: '/data', CLAUDE_CONFIG_DIR: '/data/claude', ...authEnv },
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-
-  let output = '';
-  let errOutput = '';
-
-  loginProc.stdout.on('data', (chunk) => { output += chunk.toString(); });
-  loginProc.stderr.on('data', (chunk) => { errOutput += chunk.toString(); });
-
-  // Send Enter to select default account type
-  setTimeout(() => { loginProc.stdin.write('\n'); }, 1000);
-
-  loginProc.on('close', (code) => {
-    const allOutput = output + errOutput;
-    // Look for a URL in the output
-    const urlMatch = allOutput.match(/(https:\/\/[^\s]+)/);
-    console.log(`[login] exit code: ${code}, output: ${allOutput.slice(0, 500)}`);
-    res.json({
-      success: code === 0,
-      url: urlMatch ? urlMatch[1] : null,
-      output: allOutput.slice(0, 1000),
-    });
-  });
-
-  // Timeout after 10 seconds
-  setTimeout(() => {
-    try { loginProc.kill(); } catch (e) {}
-  }, 10000);
-});
-
-app.get('/api/claude-auth-status', (req, res) => {
-  const options = getOptions();
-  const authEnv = {};
-  if (options.api_key) authEnv.ANTHROPIC_API_KEY = options.api_key;
-
-  const proc = spawn('claude', ['-p', '--model', 'sonnet'], {
-    env: { ...process.env, HOME: '/data', CLAUDE_CONFIG_DIR: '/data/claude', ...authEnv },
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-
-  proc.stdin.write('say OK');
-  proc.stdin.end();
-
-  let output = '';
-  proc.stdout.on('data', (chunk) => { output += chunk.toString(); });
-  proc.stderr.on('data', (chunk) => { output += chunk.toString(); });
-
-  proc.on('close', (code) => {
-    res.json({ authenticated: code === 0, output: output.slice(0, 200) });
-  });
-
-  setTimeout(() => { try { proc.kill(); } catch (e) {} }, 15000);
-});
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

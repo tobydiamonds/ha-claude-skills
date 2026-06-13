@@ -1,6 +1,6 @@
 name: "Claude Skills Runner"
 description: "Run Claude Code skills (madplan, etc.) on schedule or on-demand, with a web UI to view results"
-version: "0.8.0"
+version: "0.8.1"
 slug: "claude_skills_runner"
 url: "https://github.com/tobydiamonds/ha-claude-skills"
 arch:

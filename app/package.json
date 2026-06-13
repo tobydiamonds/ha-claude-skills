@@ -1,6 +1,6 @@
 {
   "name": "ha-claude-skills",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "description": "Home Assistant add-on for running Claude Code skills",
   "main": "server.js",
