@@ -72,41 +72,15 @@
       border-radius: 6px;
     }
 
-    /* User selector */
-    .user-selector {
-      position: relative;
-    }
-    .user-btn {
+    /* User label */
+    .user-label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 20px;
       padding: 0.3rem 0.7rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-      cursor: pointer;
-      color: var(--text);
     }
-    .user-dropdown {
-      display: none;
-      position: absolute;
-      top: 100%;
-      right: 0;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-      margin-top: 0.3rem;
-      min-width: 120px;
-      z-index: 200;
-    }
-    .user-dropdown.open { display: block; }
-    .user-option {
-      padding: 0.5rem 0.8rem;
-      font-size: 0.85rem;
-      cursor: pointer;
-    }
-    .user-option:hover { background: var(--bg); }
-    .user-option.active { color: var(--accent); font-weight: 600; }
 
     /* List */
     .list-view { padding: 0.5rem; }
@@ -322,10 +296,7 @@
     <div class="header">
       <h1>Madplaner</h1>
       <div class="header-right">
-        <div class="user-selector">
-          <button class="user-btn" id="userBtn" onclick="toggleUserDropdown()">Bruger</button>
-          <div class="user-dropdown" id="userDropdown"></div>
-        </div>
+        <span class="user-label" id="userLabel"></span>
         <button class="btn" id="btnGenerate" onclick="generate()">+ Ny</button>
       </div>
     </div>
@@ -341,10 +312,7 @@
     <div class="header">
       <button class="btn back" onclick="showList()">&larr; Tilbage</button>
       <span id="detailTitle" style="font-weight:600;font-size:0.9rem"></span>
-      <div class="user-selector">
-        <button class="user-btn" id="userBtnDetail" onclick="toggleUserDropdown()">Bruger</button>
-        <div class="user-dropdown" id="userDropdownDetail"></div>
-      </div>
+      <span class="user-label" id="userLabelDetail"></span>
     </div>
     <div class="tab-bar" id="tabBar"></div>
     <div class="plan-content" id="planContent"></div>
@@ -352,62 +320,67 @@
 
   <script>
     let ws, plans = [], currentPlanId = null, currentSections = [], checkedItems = [];
-    let currentRatings = {}, currentFeedback = {}, householdMembers = [];
-    let currentUser = localStorage.getItem('currentUser') || '';
+    let currentRatings = {}, currentFeedback = {};
+    let currentUser = '';
 
     const BASE = () => location.pathname.replace(/\/$/, '');
 
     // --- Init ---
 
     async function init() {
-      await loadHousehold();
+      await detectCurrentUser();
       connectWS();
       loadPlans();
       checkStatus();
     }
 
-    async function loadHousehold() {
+    async function detectCurrentUser() {
+      // Method 1: HA external_auth (official way for ingress add-ons)
       try {
-        const res = await fetch(`${BASE()}/api/household`);
-        const data = await res.json();
-        householdMembers = data.members || [];
-        if (householdMembers.length && !currentUser) {
-          currentUser = householdMembers[0];
-          localStorage.setItem('currentUser', currentUser);
+        const authToken = await getHAToken();
+        if (authToken) {
+          const res = await fetch(`${BASE()}/api/current-user`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.name) { currentUser = data.name; }
+          }
         }
-        renderUserSelectors();
-      } catch (e) { /* ignore */ }
-    }
+      } catch (e) {}
 
-    function renderUserSelectors() {
-      const label = currentUser || 'Bruger';
-      document.getElementById('userBtn').textContent = label;
-      document.getElementById('userBtnDetail').textContent = label;
-
-      const html = householdMembers.map(m =>
-        `<div class="user-option ${m === currentUser ? 'active' : ''}" onclick="selectUser('${m}')">${m}</div>`
-      ).join('');
-      document.getElementById('userDropdown').innerHTML = html;
-      document.getElementById('userDropdownDetail').innerHTML = html;
-    }
-
-    function toggleUserDropdown() {
-      document.querySelectorAll('.user-dropdown').forEach(d => d.classList.toggle('open'));
-    }
-
-    function selectUser(name) {
-      currentUser = name;
-      localStorage.setItem('currentUser', name);
-      renderUserSelectors();
-      document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('open'));
-      if (currentPlanId) refreshCurrentSection();
-    }
-
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.user-selector')) {
-        document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('open'));
+      // Method 2: Fallback without token
+      if (!currentUser) {
+        try {
+          const res = await fetch(`${BASE()}/api/current-user`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.name) currentUser = data.name;
+          }
+        } catch (e) {}
       }
-    });
+
+      document.getElementById('userLabel').textContent = currentUser;
+      document.getElementById('userLabelDetail').textContent = currentUser;
+    }
+
+    function getHAToken() {
+      return new Promise((resolve) => {
+        // HA ingress provides auth via postMessage to parent
+        function handler(e) {
+          if (e.data && e.data.type === 'auth/token') {
+            window.removeEventListener('message', handler);
+            resolve(e.data.access_token);
+          }
+        }
+        window.addEventListener('message', handler);
+        try {
+          window.parent.postMessage({ type: 'auth/request' }, '*');
+        } catch (err) { resolve(null); }
+        // Timeout after 500ms
+        setTimeout(() => { window.removeEventListener('message', handler); resolve(null); }, 500);
+      });
+    }
 
     // --- WebSocket ---
 
@@ -573,7 +546,7 @@
     }
 
     async function rateRecipe(recipeName, rating) {
-      if (!currentUser) { alert('Vælg en bruger først'); return; }
+      if (!currentUser) { alert('Kunne ikke finde din HA-bruger. Prøv at genindlæse siden.'); return; }
       await fetch(`${BASE()}/api/madplaner/${currentPlanId}/ratings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -674,7 +647,7 @@
     }
 
     async function saveFeedback() {
-      if (!currentUser) { alert('Vælg en bruger først'); return; }
+      if (!currentUser) { alert('Kunne ikke finde din HA-bruger. Prøv at genindlæse siden.'); return; }
       const text = document.getElementById('feedbackText').value.trim();
       await fetch(`${BASE()}/api/madplaner/${currentPlanId}/feedback`, {
         method: 'POST',

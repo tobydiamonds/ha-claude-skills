@@ -459,28 +459,31 @@ app.post('/api/madplaner/:id/feedback', (req, res) => {
   res.json({ ok: true });
 });
 
-// --- Household members (from HA persons) ---
+// --- Current user detection via HA auth ---
 
-async function getHAPersons() {
-  if (!SUPERVISOR_TOKEN) return [];
-  try {
-    const res = await fetch('http://supervisor/core/api/states', {
-      headers: { 'Authorization': `Bearer ${SUPERVISOR_TOKEN}` },
-    });
-    if (!res.ok) return [];
-    const states = await res.json();
-    return states
-      .filter(s => s.entity_id.startsWith('person.'))
-      .map(s => s.attributes.friendly_name || s.entity_id.replace('person.', ''));
-  } catch (err) {
-    console.error('Failed to fetch HA persons:', err.message);
-    return [];
+app.get('/api/current-user', async (req, res) => {
+  const token = req.headers['authorization']?.replace('Bearer ', '');
+
+  // Use the user's HA token to ask HA Core who they are
+  if (token) {
+    try {
+      const haRes = await fetch('http://supervisor/core/api/current_user', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (haRes.ok) {
+        const user = await haRes.json();
+        return res.json({ name: user.name, id: user.id });
+      }
+    } catch (e) {}
   }
-}
 
-app.get('/api/household', async (req, res) => {
-  const members = await getHAPersons();
-  res.json({ members });
+  // Fallback: check ingress headers
+  const ingressUser = req.headers['x-remote-user-display-name'] || req.headers['x-remote-user-name'];
+  if (ingressUser) {
+    return res.json({ name: ingressUser, id: ingressUser });
+  }
+
+  res.json({ name: '', id: '' });
 });
 
 app.get('*', (req, res) => {
