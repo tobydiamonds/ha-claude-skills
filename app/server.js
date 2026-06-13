@@ -266,15 +266,19 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   const authEnv = {};
   if (options.api_key) authEnv.ANTHROPIC_API_KEY = options.api_key;
 
-  const proc = spawn('claude', args, {
+  // Write prompt to file and pipe via shell to avoid argument escaping issues
+  const promptFile = path.join(runDir, 'prompt.txt');
+  fs.writeFileSync(promptFile, fullPrompt);
+
+  console.log(`[run] Skill: ${skillName}, Model: ${model}, Prompt length: ${fullPrompt.length}`);
+  console.log(`[run] API key configured: ${!!options.api_key}`);
+  console.log(`[run] Prompt file: ${promptFile}`);
+
+  const proc = spawn('sh', ['-c', `cat "${promptFile}" | claude -p --model ${model}`], {
     env: { ...process.env, HOME: '/data', CLAUDE_CONFIG_DIR: '/data/claude', ...authEnv },
     cwd: runDir,
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
-
-  // Send prompt via stdin to avoid shell escaping issues
-  proc.stdin.write(fullPrompt);
-  proc.stdin.end();
 
   let output = '';
   let stderr = '';
@@ -290,7 +294,13 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
     broadcast({ type: 'output', runId, text: chunk.toString() });
   });
 
+  proc.on('error', (err) => {
+    console.error(`[run] Process spawn error:`, err.message);
+  });
+
   proc.on('close', async (code) => {
+    console.log(`[run] Process exited with code ${code}, stdout length: ${output.length}, stderr length: ${stderr.length}`);
+    if (stderr) console.error(`[run] STDERR: ${stderr.slice(0, 500)}`);
     meta.status = code === 0 ? 'completed' : 'failed';
     meta.finishedAt = new Date().toISOString();
     meta.exitCode = code;
