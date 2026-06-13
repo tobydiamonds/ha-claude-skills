@@ -1,10 +1,13 @@
 configuration:
-  skills:
-    name: Skills
-    description: Configure Claude skills and their schedules
-  log_level:
-    name: Log Level
-    description: Set the logging verbosity
+  api_key:
+    name: Anthropic API Key
+    description: Your Anthropic API key for Claude (leave empty if using CLI browser login)
+  model:
+    name: Model
+    description: Claude model to use for generation
   pexels_api_key:
     name: Pexels API Key
     description: Free API key from pexels.com for recipe images (optional, get one at pexels.com/api)
+  skills:
+    name: Skills
+    description: Configure Claude skills and their schedules

@@ -1,6 +1,6 @@
 name: "Claude Skills Runner"
 description: "Run Claude Code skills (madplan, etc.) on schedule or on-demand, with a web UI to view results"
-version: "0.7.1"
+version: "0.7.2"
 slug: "claude_skills_runner"
 url: "https://github.com/tobydiamonds/ha-claude-skills"
 arch:
@@ -19,23 +19,17 @@ map:
   - addon_config:rw
 options:
   api_key: ""
-  auth_token: ""
-  base_url: ""
   model: "claude-sonnet-4-6"
   pexels_api_key: ""
   skills: []
-  log_level: "info"
 schema:
   api_key: str?
-  auth_token: str?
-  base_url: str?
   model: str?
   pexels_api_key: str?
   skills:
     - name: str
       prompt: str
       schedule: str?
-  log_level: list(debug|info|warning|error)
 environment:
   CLAUDE_CONFIG_DIR: /data/claude
 ports:

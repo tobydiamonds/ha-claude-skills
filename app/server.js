@@ -267,8 +267,6 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   // Auth env
   const authEnv = {};
   if (options.api_key) authEnv.ANTHROPIC_API_KEY = options.api_key;
-  if (options.auth_token) authEnv.ANTHROPIC_AUTH_TOKEN = options.auth_token;
-  if (options.base_url) authEnv.ANTHROPIC_BASE_URL = options.base_url;
 
   const proc = spawn('claude', args, {
     env: { ...process.env, HOME: '/data', CLAUDE_CONFIG_DIR: '/data/claude', ...authEnv },
