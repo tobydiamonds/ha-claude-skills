@@ -262,19 +262,22 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   } else {
     fullPrompt = prompt || `Run the ${skillName} skill`;
   }
-  args.push(fullPrompt);
-
   // Auth env
   const authEnv = {};
   if (options.api_key) authEnv.ANTHROPIC_API_KEY = options.api_key;
 
+  // Pipe prompt via stdin to avoid argument length limits
   const proc = spawn('claude', args, {
     env: { ...process.env, HOME: '/data', CLAUDE_CONFIG_DIR: '/data/claude', ...authEnv },
     cwd: runDir,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
 
+  proc.stdin.write(fullPrompt);
+  proc.stdin.end();
+
   let output = '';
+  let stderr = '';
 
   proc.stdout.on('data', (chunk) => {
     output += chunk.toString();
@@ -282,7 +285,8 @@ function runSkill(skillName, prompt, triggeredBy = 'manual') {
   });
 
   proc.stderr.on('data', (chunk) => {
-    output += chunk.toString();
+    stderr += chunk.toString();
+    console.error(`[${runId}] stderr:`, chunk.toString());
     broadcast({ type: 'output', runId, text: chunk.toString() });
   });
 

@@ -390,7 +390,14 @@
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === 'started') showRunning(true);
-        if (msg.type === 'completed') { showRunning(false); loadPlans(); }
+        if (msg.type === 'completed') {
+          showRunning(false);
+          if (msg.status === 'failed') {
+            alert('Generering fejlede. Tjek add-on loggen for detaljer.');
+          } else {
+            loadPlans();
+          }
+        }
       };
       ws.onclose = () => setTimeout(connectWS, 3000);
     }
