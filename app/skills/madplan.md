@@ -57,6 +57,9 @@ Brug FORTRINSVIST grøntsager og frugt der er i sæson for den aktuelle måned. 
 
 ### Inspirationskilder
 - Valdemarsro.dk (nem hverdagsmad-konceptet)
+- madensverden.dk (varieret hverdagsmad)
+- arla.dk/opskrifter (tilpasset laktosefri)
+- opskrifter.dk (klassiske danske retter)
 - AUH's 10 kostråd: spis varieret, masser af grønt, fuldkorn, bælgfrugter, sunde fedtstoffer
 - spisbedre.dk — sæsonkalender for dansk frugt og grønt
 
@@ -80,7 +83,6 @@ Generer madplanen i følgende markdown-format:
 ---
 
 ## Mandag: [Ret-navn]
-![Ret-navn](image-search:ENGLISH_DESCRIPTION_OF_FINISHED_DISH)
 **Tid:** X min | **Protein:** X | **Bælgfrugt:** X (hvis relevant)
 
 ### Ingredienser (3 pers)
@@ -88,6 +90,8 @@ Generer madplanen i følgende markdown-format:
 
 ### Fremgangsmåde
 1. ...
+
+![Ret-navn](image-search:ENGLISH_DESCRIPTION_OF_FINISHED_DISH)
 
 ---
 
@@ -120,4 +124,4 @@ Generer madplanen i følgende markdown-format:
 - Portioner: 3 personer (medmindre andet angivet)
 - Indkøbslisten skal være samlet for hele ugen og sorteret efter supermarkedets afdelinger
 - Marker ingredienser der kan genbruges på tværs af ugens retter
-- **Billede pr. ret**: Inkluder ÉN linje `![Ret-navn](image-search:QUERY)` umiddelbart efter hver dags H2-overskrift. QUERY skal være på engelsk og beskrive den færdige ret visuelt (f.eks. "chicken tikka masala bowl with rice and naan bread"). Brug IKKE danske navne i søgeforespørgslen.
+- **Billede pr. ret**: Inkluder ÉN linje `![Ret-navn](image-search:QUERY)` i BUNDEN af hver opskrift (efter fremgangsmåden). QUERY skal være på engelsk og beskrive den færdige ret visuelt (f.eks. "chicken tikka masala bowl with rice and naan bread"). Brug IKKE danske navne i søgeforespørgslen.
